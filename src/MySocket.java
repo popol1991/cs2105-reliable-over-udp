@@ -35,8 +35,9 @@ public class MySocket {
 	private AppLayerConnection appLayer;
 	private Timer timeoutTimer;
 
-	public MySocket(InetAddress addr, int inPort, int outPort)
+	public MySocket(InetAddress addr, int outPort, int inPort)
 			throws IOException {
+		this.destAddr = addr;
 		this.inPort = inPort;
 		this.outPort = outPort;
 		this.outSocket = new DatagramSocket();
@@ -58,8 +59,8 @@ public class MySocket {
 		this.appLayer = new AppLayerConnection();
 		this.timeoutTimer = new Timer(true);
 
-		(new Thread(waitForAcks)).start();
-		(new Thread(appLayer)).start();
+		(new Thread(waitForAcks, "waitAcks")).start();
+		(new Thread(appLayer, "appLayerReader")).start();
 
 	}
 
@@ -76,7 +77,7 @@ public class MySocket {
 	}
 
 	private synchronized void send(ReliableDataPacket packet) {
-		byte[] data = packet.getData();
+		byte[] data = packet.getByteArray();
 		DatagramPacket pkt = new DatagramPacket(data, data.length, destAddr,
 				outPort);
 		try {

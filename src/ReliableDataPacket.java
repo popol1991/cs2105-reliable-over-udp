@@ -1,30 +1,56 @@
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.DataInputStream;
+import java.io.DataOutputStream;
+import java.io.IOException;
 import java.net.DatagramPacket;
 
 public class ReliableDataPacket {
 
 	public static final int PAYLOAD_SIZE = 1000;
-	public static final int DATA_SIZE = 997;
 	private static final int META_DATA_SIZE = 3;
+	public static final int DATA_SIZE = PAYLOAD_SIZE - META_DATA_SIZE;
 
 	private short origChksum, currentChksum; // 16-bit checksum according to
 												// RFC768
 	// 8-bit sequence number
 	// the range of sequence number must be larger than 2 times the window size
 	private int seqNo;
-
 	private byte[] data;
 
-	public ReliableDataPacket(int seqNo, byte[] buf, int bytes) {
+	public ReliableDataPacket(int seqNo, byte[] buf, int length) {
 		this.seqNo = seqNo;
 		this.origChksum = CheckSum.compute(buf, seqNo);
-		this.data = constructData(buf, seqNo, origChksum);
+		data = new byte[length];
+		System.arraycopy(buf, 0, data, 0, length);
 	}
 
 	public ReliableDataPacket(DatagramPacket pkt, int length) {
-		this.data = pkt.getData();
-		this.origChksum = CheckSum.getChecksum(data);
-		this.currentChksum = CheckSum.compute(data);
-		this.seqNo = (int) (data[2] & 0xff);
+		byte[] content = pkt.getData();
+		DataInputStream ds = new DataInputStream(new ByteArrayInputStream(
+				content));
+		try {
+			this.origChksum = ds.readShort();
+			this.currentChksum = CheckSum.compute(content);
+			this.seqNo = (int) (ds.readByte() & 0xff);
+			data = new byte[length - META_DATA_SIZE];
+			ds.read(data, 0, length - META_DATA_SIZE);
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+	}
+
+	public byte[] getByteArray() {
+		ByteArrayOutputStream bs = new ByteArrayOutputStream(3 + data.length);
+		DataOutputStream ds = new DataOutputStream(bs);
+		try {
+			ds.writeShort(origChksum);
+			ds.writeByte((byte) seqNo);
+			ds.write(data);
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+		return bs.toByteArray();
 	}
 
 	public byte[] getData() {
@@ -35,25 +61,12 @@ public class ReliableDataPacket {
 		return seqNo;
 	}
 
-	/**
-	 * 
-	 * the first two bytes of data store checksum value, the third byte of data
-	 * stores the sequence number, and the rest of data stores the payload
-	 * 
-	 */
-	private byte[] constructData(byte[] buf, int seqNo, short checksum) {
-		byte[] data = new byte[buf.length + META_DATA_SIZE];
-		data[0] = (byte) (checksum >>> 8); // logic right shift
-		data[1] = (byte) (checksum & 0xff);
-		data[2] = (byte) seqNo;
-		for (int i = 0; i < buf.length; i++) {
-			data[META_DATA_SIZE + i] = buf[i];
-		}
-		return data;
-	}
-
 	public short getCurrentChksum() {
 		return currentChksum;
+	}
+
+	public short getOrigChksum() {
+		return origChksum;
 	}
 
 }

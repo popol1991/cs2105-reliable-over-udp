@@ -4,10 +4,11 @@ import java.io.PipedInputStream;
 import java.io.PipedOutputStream;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
-import java.net.SocketException;
+import java.net.InetAddress;
 import java.util.Hashtable;
 
 public class MyServerSocket implements Runnable {
+	private static InetAddress destAddr;
 	private DatagramSocket inSocket, outSocket;
 	private int outPort;
 
@@ -18,9 +19,11 @@ public class MyServerSocket implements Runnable {
 
 	private int leftWindow = 0;
 
-	public MyServerSocket(int inPort, int outPort) throws SocketException {
+	public MyServerSocket(int inPort, int outPort) throws IOException {
 		inSocket = new DatagramSocket(inPort);
 		outSocket = new DatagramSocket();
+		destAddr = InetAddress.getByName("127.0.0.1");
+		this.outPort = outPort;
 
 		buffer = new Hashtable<Integer, byte[]>();
 
@@ -56,13 +59,22 @@ public class MyServerSocket implements Runnable {
 
 			boolean isNew = seqNo >= leftWindow && !buffer.contains(seqNo);
 			if (isNew) {
-				buffer.put(seqNo, receivedPkt.getData());
+				byte[] data = receivedPkt.getData();
+				int index;
+				for (index=0;index<data.length;index++) {
+					if (data[index] == -1) {
+						break;
+					}
+				}
+				byte[] realData = new byte[index];
+				System.arraycopy(data, 0, realData, 0, index);
+				buffer.put(seqNo, realData);
 			}
 
 			ReliableAckPacket ack = new ReliableAckPacket(seqNo);
-			byte[] ackData = ack.getData();
+			byte[] ackData = ack.getByteArray();
 			DatagramPacket ackPkt = new DatagramPacket(ackData, ackData.length,
-					pkt.getAddress(), outPort);
+					destAddr, outPort);
 
 			try {
 				outSocket.send(ackPkt);

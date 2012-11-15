@@ -1,45 +1,54 @@
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.DataInputStream;
+import java.io.DataOutputStream;
+import java.io.IOException;
+
 public class ReliableAckPacket {
 	public static final int DATA_SIZE = 1000;
 	private int seqNo;
-	private short origChksum,currentChksum;
-	private byte[] data;
+	private short origChksum, currentChksum;
 
-	public ReliableAckPacket(byte[] data) {
-		assert (data != null);
-		this.data  = data;
-		this.origChksum = CheckSum.compute(data);
-		this.currentChksum = CheckSum.getChecksum(data);
-		if (data.length > 2) {
-			this.seqNo = (int) (data[2] & 0xff);
-		} else {
-			this.seqNo = -1;
+	public ReliableAckPacket(byte[] content) {
+		DataInputStream ds = new DataInputStream(new ByteArrayInputStream(
+				content));
+		this.origChksum = CheckSum.compute(content);
+		try {
+			this.currentChksum = ds.readShort();
+			this.seqNo = (int) (ds.readByte() & 0xff);
+		} catch (IOException e) {
+			e.printStackTrace();
 		}
 	}
 
 	public ReliableAckPacket(int seqNo) {
 		this.seqNo = seqNo;
 		this.origChksum = CheckSum.compute(seqNo);
-		this.data = constructData(origChksum,seqNo);
 	}
 
-	private byte[] constructData(short checksum, int seqNo) {
-		byte[] data = new byte[3];
-		data[0] = (byte) (checksum >>> 8); // logic right shift
-		data[1] = (byte) (checksum & 0xff);
-		data[2] = (byte) seqNo;
-		return data;
+	public byte[] getByteArray() {
+		ByteArrayOutputStream bs = new ByteArrayOutputStream(3);
+		DataOutputStream ds = new DataOutputStream(bs);
+		try {
+			ds.writeShort(origChksum);
+			ds.writeByte((byte) seqNo);
+			ds.write(new byte[997]);
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+		return bs.toByteArray();
 	}
 
-	public Integer getSeqNo() {
+	public int getSeqNo() {
 		return seqNo;
 	}
 
-	public short getChecksum() {
+	public short getOrigChecksum() {
 		return origChksum;
 	}
 
-	public byte[] getData() {
-		return data;
+	public short getCurrentChecksum() {
+		return currentChksum;
 	}
 
 }

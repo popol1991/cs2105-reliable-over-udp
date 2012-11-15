@@ -13,14 +13,14 @@ import java.util.TimerTask;
 
 public class SenderApp {
 	static final String REMOTE_ADDRESS = "127.0.0.1";
-	static final long SEND_INTERVAL = 500;
+	static final long SEND_INTERVAL = 1000;
 	static final int WINDOW_SIZE = 10;
-	static final int TIMEOUT = 5000;
+	static final int TIMEOUT = 500;
 	InetAddress destAddr;
 	int inPort, outPort;
 	Timer timer;
 
-	public SenderApp(int inPort, int outPort) {
+	public SenderApp(int outPort, int inPort) {
 		try {
 			this.destAddr = InetAddress.getByName(REMOTE_ADDRESS);
 		} catch (UnknownHostException e) {
@@ -33,7 +33,7 @@ public class SenderApp {
 	}
 
 	public void start() {
-		timer.scheduleAtFixedRate(new SenderReader(destAddr, inPort, outPort),
+		timer.scheduleAtFixedRate(new SenderReader(destAddr, outPort, inPort),
 				0, SEND_INTERVAL);
 	}
 
@@ -43,9 +43,9 @@ public class SenderApp {
 		}
 
 		int inPort, outPort;
-		inPort = Integer.parseInt(args[0]);
-		outPort = Integer.parseInt(args[1]);
-		SenderApp sender = new SenderApp(inPort, outPort);
+		outPort = Integer.parseInt(args[0]);
+		inPort = Integer.parseInt(args[1]);
+		SenderApp sender = new SenderApp(outPort, inPort);
 		sender.start();
 	}
 
@@ -73,11 +73,17 @@ public class SenderApp {
 		@Override
 		public void run() {
 			byte[] data = new byte[DATA_SIZE];
+			int bytes;
 			try {
-				if (reader.read(data) != -1) {
+				if ((bytes = reader.read(data)) != -1) {
+					System.out.println(bytes);
+					if (bytes < DATA_SIZE) {
+						data[bytes] = -1;
+					}
 					outWriter.write(data);
 					outWriter.flush();
 				} else {
+					timer.cancel();
 					reader.close();
 				}
 			} catch (IOException e) {

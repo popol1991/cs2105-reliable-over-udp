@@ -23,9 +23,11 @@ public class ReceiverApp extends Thread {
 		try {
 			MyServerSocket socket = new MyServerSocket(inPort, outPort);
 			InputStream reader = socket.getInputStream();
-			byte[] buf = new byte[1024];
-			while (reader.read(buf) != 0) {
-				writer.write(buf);
+			byte[] buf = new byte[997];
+			byte[] data;
+			int bytes;
+			while ((bytes = reader.read(buf)) != 0) {
+				writer.write(buf, 0, bytes);
 			}
 			reader.close();
 			writer.flush();
