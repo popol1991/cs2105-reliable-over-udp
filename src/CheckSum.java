@@ -29,9 +29,9 @@ public class CheckSum {
 		short sum = 0;
 		for (int i = 0; i < data.length; i++) {
 			if (i % 2 == 0) {
-				sum = (short) (sum ^ ((short) data[i] << 8));
+				sum = (short) (sum ^ ((short) ~(data[i] << 8)));
 			} else {
-				sum = (short) (sum ^ data[i]);
+				sum = (short) (sum ^ ~(data[i]));
 			}
 		}
 		return sum;

@@ -11,16 +11,16 @@ import java.net.UnknownHostException;
 import java.util.Timer;
 import java.util.TimerTask;
 
-public class SenderApp {
+public class Sender {
 	static final String REMOTE_ADDRESS = "127.0.0.1";
-	static final long SEND_INTERVAL = 30;
+	static final long SEND_INTERVAL = 25;
 	static final int WINDOW_SIZE = 5;
 	static final int TIMEOUT = 250;
 	InetAddress destAddr;
 	int inPort, outPort;
 	Timer timer;
 
-	public SenderApp(int outPort, int inPort) {
+	public Sender(int outPort, int inPort) {
 		try {
 			this.destAddr = InetAddress.getByName(REMOTE_ADDRESS);
 		} catch (UnknownHostException e) {
@@ -45,7 +45,7 @@ public class SenderApp {
 		int inPort, outPort;
 		outPort = Integer.parseInt(args[0]);
 		inPort = Integer.parseInt(args[1]);
-		SenderApp sender = new SenderApp(outPort, inPort);
+		Sender sender = new Sender(outPort, inPort);
 		sender.start();
 	}
 

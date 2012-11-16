@@ -4,13 +4,13 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.logging.Logger;
 
-public class ReceiverApp extends Thread {
-	private static Logger logger = Logger.getLogger(ReceiverApp.class.getName());
+public class Receiver extends Thread {
+	private static Logger logger = Logger.getLogger(Receiver.class.getName());
 	private static final String FILE_PATH = "./output.txt";
 	private int inPort, outPort;
 	private FileOutputStream writer;
 
-	public ReceiverApp(int inPort, int outPort) throws IOException {
+	public Receiver(int inPort, int outPort) throws IOException {
 		this.inPort = inPort;
 		this.outPort = outPort;
 		File file = new File(FILE_PATH);
@@ -46,7 +46,7 @@ public class ReceiverApp extends Thread {
 			int inPort = Integer.parseInt(args[0]);
 			int outPort = Integer.parseInt(args[1]);
 			try {
-				(new ReceiverApp(inPort, outPort)).start();
+				(new Receiver(inPort, outPort)).start();
 			} catch (IOException e) {
 				System.err.println(e.getMessage());
 				System.exit(-1);
