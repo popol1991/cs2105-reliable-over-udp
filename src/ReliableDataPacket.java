@@ -35,22 +35,29 @@ public class ReliableDataPacket {
 			this.seqNo = ds.readInt();
 			data = new byte[length - META_DATA_SIZE];
 			ds.read(data, 0, length - META_DATA_SIZE);
+			ds.close();
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
 	}
 
 	public byte[] getByteArray() {
-		ByteArrayOutputStream bs = new ByteArrayOutputStream(META_DATA_SIZE + data.length);
+		ByteArrayOutputStream bs = new ByteArrayOutputStream(META_DATA_SIZE
+				+ data.length);
 		DataOutputStream ds = new DataOutputStream(bs);
 		try {
 			ds.writeShort(origChksum);
 			ds.writeInt(seqNo);
 			ds.write(data);
+			ds.close();
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
 		return bs.toByteArray();
+	}
+
+	public boolean isCorrupted() {
+		return origChksum != currentChksum;
 	}
 
 	public byte[] getData() {

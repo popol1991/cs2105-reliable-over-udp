@@ -83,6 +83,7 @@ public class MySocket {
 	}
 
 	public void finish() {
+		while (buffer.size()>0);
 		appLayerThread.stop();
 		byte[] fin = new byte[ReliableDataPacket.DATA_SIZE];
 		ReliableDataPacket pkt = new ReliableDataPacket(-1, fin,
@@ -153,9 +154,13 @@ public class MySocket {
 					System.err.println("broken pipeline!");
 					break;
 				}
-
+				
 				ReliableAckPacket ack = new ReliableAckPacket(pkt.getData());
-
+				if (ack.isCorrupted()) {
+					logger.info("discarding a corrupted packet");
+					continue;
+				}
+				
 				synchronized (mutex) {
 					int seq = ack.getSeqNo();
 					if (seq == -1) {

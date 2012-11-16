@@ -18,6 +18,7 @@ public class ReliableAckPacket {
 		try {
 			this.currentChksum = ds.readShort();
 			this.seqNo = ds.readInt();
+			ds.close();
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
@@ -35,10 +36,15 @@ public class ReliableAckPacket {
 			ds.writeShort(origChksum);
 			ds.writeInt(seqNo);
 			ds.write(new byte[DATA_SIZE]);
+			ds.close();
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
 		return bs.toByteArray();
+	}
+	
+	public boolean isCorrupted() {
+		return origChksum != currentChksum;
 	}
 
 	public int getSeqNo() {

@@ -66,12 +66,17 @@ public class MyServerSocket implements Runnable {
 			try {
 				logger.info("waiting packet");
 				inSocket.receive(pkt);
-				receivedPkt = new ReliableDataPacket(pkt, pkt.getLength());
 			} catch (IOException e) {
 				e.printStackTrace();
 				break;
 			}
 
+			receivedPkt = new ReliableDataPacket(pkt, pkt.getLength());
+			if (receivedPkt.isCorrupted()) {
+				logger.info("discarding a corrupted packet");
+				continue;
+			}
+			
 			int seqNo = receivedPkt.getSeqNo();
 			if (seqNo == -2) {
 				logger.info("receive finish signal");
