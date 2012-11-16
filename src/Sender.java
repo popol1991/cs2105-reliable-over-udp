@@ -39,6 +39,8 @@ public class Sender {
 
 	public static void main(String[] args) {
 		if (args.length != 2) {
+			System.err
+					.println("please input incoming and outcoming port number");
 			System.exit(-1);
 		}
 
