@@ -13,9 +13,9 @@ import java.util.TimerTask;
 
 public class SenderApp {
 	static final String REMOTE_ADDRESS = "127.0.0.1";
-	static final long SEND_INTERVAL = 1000;
-	static final int WINDOW_SIZE = 10;
-	static final int TIMEOUT = 500;
+	static final long SEND_INTERVAL = 30;
+	static final int WINDOW_SIZE = 5;
+	static final int TIMEOUT = 250;
 	InetAddress destAddr;
 	int inPort, outPort;
 	Timer timer;
@@ -51,7 +51,7 @@ public class SenderApp {
 
 	class SenderReader extends TimerTask {
 		static final String FILE_PATH = "./input.txt";
-		static final int DATA_SIZE = 997;
+		static final int DATA_SIZE = ReliableDataPacket.DATA_SIZE;
 		MySocket senderSockets;
 		OutputStream outWriter;
 		InputStream reader;
@@ -76,7 +76,6 @@ public class SenderApp {
 			int bytes;
 			try {
 				if ((bytes = reader.read(data)) != -1) {
-					System.out.println(bytes);
 					if (bytes < DATA_SIZE) {
 						data[bytes] = -1;
 					}
@@ -84,7 +83,7 @@ public class SenderApp {
 					outWriter.flush();
 				} else {
 					timer.cancel();
-					reader.close();
+					senderSockets.finish();
 				}
 			} catch (IOException e) {
 				e.printStackTrace();

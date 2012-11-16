@@ -6,8 +6,11 @@ import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
 import java.util.Hashtable;
+import java.util.logging.Logger;
 
 public class MyServerSocket implements Runnable {
+	private static Logger logger = Logger.getLogger(MyServerSocket.class
+			.getName());
 	private static InetAddress destAddr;
 	private DatagramSocket inSocket, outSocket;
 	private int outPort;
@@ -18,6 +21,7 @@ public class MyServerSocket implements Runnable {
 	private Hashtable<Integer, byte[]> buffer;
 
 	private int leftWindow = 0;
+	private boolean stop = false;
 
 	public MyServerSocket(int inPort, int outPort) throws IOException {
 		inSocket = new DatagramSocket(inPort);
@@ -41,6 +45,18 @@ public class MyServerSocket implements Runnable {
 		return appLayerStream;
 	}
 
+	private void close() {
+		outSocket.close();
+		inSocket.close();
+		buffer.clear();
+		try {
+			internalOutputStream.close();
+			appLayerStream.close();
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+	}
+
 	@Override
 	public void run() {
 		while (true) {
@@ -48,6 +64,7 @@ public class MyServerSocket implements Runnable {
 			DatagramPacket pkt = new DatagramPacket(new byte[maxSize], maxSize);
 			ReliableDataPacket receivedPkt;
 			try {
+				logger.info("waiting packet");
 				inSocket.receive(pkt);
 				receivedPkt = new ReliableDataPacket(pkt, pkt.getLength());
 			} catch (IOException e) {
@@ -56,12 +73,18 @@ public class MyServerSocket implements Runnable {
 			}
 
 			int seqNo = receivedPkt.getSeqNo();
-
+			if (seqNo == -2) {
+				logger.info("receive finish signal");
+				stop = true;
+			} else {
+				logger.info("A packet with sequence number: " + seqNo
+						+ " is received");
+			}
 			boolean isNew = seqNo >= leftWindow && !buffer.contains(seqNo);
 			if (isNew) {
 				byte[] data = receivedPkt.getData();
 				int index;
-				for (index=0;index<data.length;index++) {
+				for (index = 0; index < data.length; index++) {
 					if (data[index] == -1) {
 						break;
 					}
@@ -69,6 +92,7 @@ public class MyServerSocket implements Runnable {
 				byte[] realData = new byte[index];
 				System.arraycopy(data, 0, realData, 0, index);
 				buffer.put(seqNo, realData);
+				// logger.info("packet buffered");
 			}
 
 			ReliableAckPacket ack = new ReliableAckPacket(seqNo);
@@ -86,13 +110,18 @@ public class MyServerSocket implements Runnable {
 			byte[] data;
 			while ((data = buffer.get(leftWindow)) != null) {
 				try {
+					// logger.info("writing data to application layer");
 					internalOutputStream.write(data);
 					internalOutputStream.flush();
 				} catch (IOException e) {
 					e.printStackTrace();
 					break;
 				}
-				leftWindow++;
+				++leftWindow;
+			}
+			if (stop) {
+				close();
+				break;
 			}
 		}
 	}

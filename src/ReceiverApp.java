@@ -2,8 +2,10 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.logging.Logger;
 
 public class ReceiverApp extends Thread {
+	private static Logger logger = Logger.getLogger(ReceiverApp.class.getName());
 	private static final String FILE_PATH = "./output.txt";
 	private int inPort, outPort;
 	private FileOutputStream writer;
@@ -23,10 +25,10 @@ public class ReceiverApp extends Thread {
 		try {
 			MyServerSocket socket = new MyServerSocket(inPort, outPort);
 			InputStream reader = socket.getInputStream();
-			byte[] buf = new byte[997];
+			byte[] buf = new byte[ReliableAckPacket.DATA_SIZE];
 			byte[] data;
 			int bytes;
-			while ((bytes = reader.read(buf)) != 0) {
+			while ((bytes = reader.read(buf)) != -1) {
 				writer.write(buf, 0, bytes);
 			}
 			reader.close();

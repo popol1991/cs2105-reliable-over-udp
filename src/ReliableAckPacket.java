@@ -5,7 +5,9 @@ import java.io.DataOutputStream;
 import java.io.IOException;
 
 public class ReliableAckPacket {
-	public static final int DATA_SIZE = 1000;
+	public static final int PAYLOAD_SIZE = 1000;
+	public static final int META_DATA_SIZE = 6;
+	public static final int DATA_SIZE = PAYLOAD_SIZE - META_DATA_SIZE;
 	private int seqNo;
 	private short origChksum, currentChksum;
 
@@ -15,7 +17,7 @@ public class ReliableAckPacket {
 		this.origChksum = CheckSum.compute(content);
 		try {
 			this.currentChksum = ds.readShort();
-			this.seqNo = (int) (ds.readByte() & 0xff);
+			this.seqNo = ds.readInt();
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
@@ -31,8 +33,8 @@ public class ReliableAckPacket {
 		DataOutputStream ds = new DataOutputStream(bs);
 		try {
 			ds.writeShort(origChksum);
-			ds.writeByte((byte) seqNo);
-			ds.write(new byte[997]);
+			ds.writeInt(seqNo);
+			ds.write(new byte[DATA_SIZE]);
 		} catch (IOException e) {
 			e.printStackTrace();
 		}

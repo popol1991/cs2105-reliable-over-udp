@@ -12,8 +12,10 @@ import java.util.Hashtable;
 import java.util.Set;
 import java.util.Timer;
 import java.util.TimerTask;
+import java.util.logging.Logger;
 
 public class MySocket {
+	private static Logger logger = Logger.getLogger(MySocket.class.getName());
 	private InetAddress destAddr;
 	private int inPort, outPort;
 	private DatagramSocket inSocket, outSocket;
@@ -34,13 +36,15 @@ public class MySocket {
 	private WaitForAcks waitForAcks;
 	private AppLayerConnection appLayer;
 	private Timer timeoutTimer;
+	
+	private Thread appLayerThread, waitForAcksThread;
 
 	public MySocket(InetAddress addr, int outPort, int inPort)
 			throws IOException {
 		this.destAddr = addr;
 		this.inPort = inPort;
 		this.outPort = outPort;
-		this.outSocket = new DatagramSocket();
+		this.outSocket = new DatagramSocket(53099);
 		this.inSocket = new DatagramSocket(inPort);
 
 		this.internalInputStream = new PipedInputStream();
@@ -59,8 +63,10 @@ public class MySocket {
 		this.appLayer = new AppLayerConnection();
 		this.timeoutTimer = new Timer(true);
 
-		(new Thread(waitForAcks, "waitAcks")).start();
-		(new Thread(appLayer, "appLayerReader")).start();
+		waitForAcksThread =new Thread(waitForAcks, "waitAcks");
+		appLayerThread = new Thread(appLayer, "appLayerReader");
+		waitForAcksThread.start();
+		appLayerThread.start();
 
 	}
 
@@ -76,11 +82,35 @@ public class MySocket {
 		return appLayerStream;
 	}
 
+	public void finish() {
+		appLayerThread.stop();
+		byte[] fin = new byte[ReliableDataPacket.DATA_SIZE];
+		ReliableDataPacket pkt = new ReliableDataPacket(-1, fin,
+				ReliableDataPacket.DATA_SIZE);
+		buffer.put(-1, pkt);
+		send(pkt);
+	}
+
+	private synchronized void close() {
+		waitForAcksThread.stop();
+		outSocket.close();
+		inSocket.close();
+		buffer.clear();
+		try {
+			internalInputStream.close();
+			appLayerStream.close();
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+	}
+
 	private synchronized void send(ReliableDataPacket packet) {
 		byte[] data = packet.getByteArray();
 		DatagramPacket pkt = new DatagramPacket(data, data.length, destAddr,
 				outPort);
 		try {
+			logger.info("a packet with sequence number: " + packet.getSeqNo()
+					+ " is sent");
 			outSocket.send(pkt);
 		} catch (IOException e) {
 			e.printStackTrace();
@@ -115,7 +145,8 @@ public class MySocket {
 		public void run() {
 			while (true) {
 				DatagramPacket pkt = new DatagramPacket(
-						new byte[ReliableAckPacket.DATA_SIZE], ReliableAckPacket.DATA_SIZE);
+						new byte[ReliableAckPacket.PAYLOAD_SIZE],
+						ReliableAckPacket.PAYLOAD_SIZE);
 				try {
 					inSocket.receive(pkt);
 				} catch (IOException e) {
@@ -126,22 +157,33 @@ public class MySocket {
 				ReliableAckPacket ack = new ReliableAckPacket(pkt.getData());
 
 				synchronized (mutex) {
-					ackedNos.add(ack.getSeqNo());
-					buffer.remove(ack.getSeqNo());
+					int seq = ack.getSeqNo();
+					if (seq == -1) {
+						logger.info("receive finish signal");
+						byte[] fin = new byte[ReliableDataPacket.DATA_SIZE];
+						ReliableDataPacket finack = new ReliableDataPacket(-2,
+								fin, ReliableDataPacket.DATA_SIZE);
+						send(finack);
+						close();
+					} else {
+						ackedNos.add(seq);
+						buffer.remove(seq);
+						logger.info("receive ack: " + seq);
 
-					int nextToSend = Math.min(nextSeqNo, leftWindow
-							+ windowSize);
+						int nextToSend = Math.min(nextSeqNo, leftWindow
+								+ windowSize);
 
-					// slide the window
-					while (ackedNos.contains(leftWindow)) {
-						ackedNos.remove(leftWindow);
-						leftWindow++;
-					}
+						// slide the window
+						while (ackedNos.contains(leftWindow)) {
+							ackedNos.remove(leftWindow);
+							++leftWindow;
+						}
 
-					boolean inWindow = nextToSend < leftWindow + windowSize;
-					while (buffer.containsKey(nextToSend) && inWindow) {
-						send(buffer.get(nextToSend));
-						nextToSend++;
+						while (buffer.containsKey(nextToSend)
+								&& nextToSend < leftWindow + windowSize) {
+							send(buffer.get(nextToSend));
+							nextToSend++;
+						}
 					}
 				}
 			}
@@ -159,6 +201,9 @@ public class MySocket {
 				int bytes;
 				try {
 					bytes = internalInputStream.read(buf);
+					if (bytes < ReliableDataPacket.DATA_SIZE && bytes != -1) {
+						buf[bytes] = -1;
+					}
 				} catch (IOException e) {
 					e.printStackTrace();
 					break;
@@ -170,7 +215,7 @@ public class MySocket {
 				synchronized (mutex) {
 					ReliableDataPacket pkt = new ReliableDataPacket(nextSeqNo,
 							buf, bytes);
-					nextSeqNo++;
+					++nextSeqNo;
 
 					synchronized (buffer) {
 						buffer.put(pkt.getSeqNo(), pkt);

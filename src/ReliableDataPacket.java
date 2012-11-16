@@ -8,7 +8,7 @@ import java.net.DatagramPacket;
 public class ReliableDataPacket {
 
 	public static final int PAYLOAD_SIZE = 1000;
-	private static final int META_DATA_SIZE = 3;
+	private static final int META_DATA_SIZE = 6;
 	public static final int DATA_SIZE = PAYLOAD_SIZE - META_DATA_SIZE;
 
 	private short origChksum, currentChksum; // 16-bit checksum according to
@@ -21,7 +21,7 @@ public class ReliableDataPacket {
 	public ReliableDataPacket(int seqNo, byte[] buf, int length) {
 		this.seqNo = seqNo;
 		this.origChksum = CheckSum.compute(buf, seqNo);
-		data = new byte[length];
+		data = new byte[DATA_SIZE];
 		System.arraycopy(buf, 0, data, 0, length);
 	}
 
@@ -32,7 +32,7 @@ public class ReliableDataPacket {
 		try {
 			this.origChksum = ds.readShort();
 			this.currentChksum = CheckSum.compute(content);
-			this.seqNo = (int) (ds.readByte() & 0xff);
+			this.seqNo = ds.readInt();
 			data = new byte[length - META_DATA_SIZE];
 			ds.read(data, 0, length - META_DATA_SIZE);
 		} catch (IOException e) {
@@ -41,11 +41,11 @@ public class ReliableDataPacket {
 	}
 
 	public byte[] getByteArray() {
-		ByteArrayOutputStream bs = new ByteArrayOutputStream(3 + data.length);
+		ByteArrayOutputStream bs = new ByteArrayOutputStream(META_DATA_SIZE + data.length);
 		DataOutputStream ds = new DataOutputStream(bs);
 		try {
 			ds.writeShort(origChksum);
-			ds.writeByte((byte) seqNo);
+			ds.writeInt(seqNo);
 			ds.write(data);
 		} catch (IOException e) {
 			e.printStackTrace();
